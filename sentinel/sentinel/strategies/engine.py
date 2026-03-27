@@ -5,6 +5,8 @@ from __future__ import annotations
 from sentinel.models.opportunity import YieldOpportunity, YieldType
 from sentinel.models.protocol import RiskLevel
 from sentinel.models.report import StrategyRecommendation
+from sentinel.strategies.delta_neutral_lp import DeltaNeutralLPEvaluator
+from sentinel.strategies.pt_arbitrage import PTArbitrageEvaluator
 from sentinel.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -66,12 +68,22 @@ class StrategyEngine:
             if restaking:
                 strategies.append(restaking)
 
-        # 6. Cross-chain yield spread
+        # 6. PT arbitrage (Pendle fixed yield vs risk-free)
+        pt_evaluator = PTArbitrageEvaluator()
+        pt_strategies = pt_evaluator.evaluate(opportunities, underlying, size_usd)
+        strategies.extend(pt_strategies)
+
+        # 7. Delta-neutral LP (LP + perp hedge)
+        dn_evaluator = DeltaNeutralLPEvaluator()
+        dn_strategies = dn_evaluator.evaluate(opportunities, underlying, size_usd)
+        strategies.extend(dn_strategies)
+
+        # 8. Cross-chain yield spread
         cross_chain = self._cross_chain_strategy(opportunities, underlying, size_usd)
         if cross_chain:
             strategies.append(cross_chain)
 
-        # 7. Diversified portfolio strategy
+        # 9. Diversified portfolio strategy
         diversified = self._diversified_strategy(opportunities, underlying, size_usd)
         if diversified:
             strategies.append(diversified)

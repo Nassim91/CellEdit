@@ -10,9 +10,12 @@ from sentinel.models.opportunity import YieldOpportunity
 from sentinel.sources.aave import AaveSource
 from sentinel.sources.base import BaseYieldSource
 from sentinel.sources.compound import CompoundSource
+from sentinel.sources.convex_curve import ConvexCurveSource
 from sentinel.sources.defillama import DefiLlamaSource
 from sentinel.sources.eigenlayer import EigenLayerSource
 from sentinel.sources.ethena import EthenaSource
+from sentinel.sources.funding_rates import FundingRatesSource
+from sentinel.sources.lido import LidoSource
 from sentinel.sources.maker import MakerDSRSource
 from sentinel.sources.morpho import MorphoSource
 from sentinel.sources.oneinch import OneInchYieldSource
@@ -50,13 +53,15 @@ class YieldAggregator:
         3. Yield aggregators (Yearn, Zapper, 1inch) — vault yields
         4. Ecosystem sources (EigenLayer, Ethena, Maker) — specialized yields
         """
+        fr_config = self.settings.funding_rates
         return [
             # Layer 1: Meta-aggregators (highest coverage)
             DefiLlamaSource(
                 http=self._http,
-                base_url=self.settings.defillama.base_url,
+                base_url=self.settings.defillama.yields_url,
                 api_url=self.settings.defillama.api_url,
                 min_tvl=self.settings.filters.min_tvl_usd,
+                api_key=self.settings.defillama.api_key,
             ),
             VaultsFyiSource(http=self._http),
 
@@ -68,6 +73,7 @@ class YieldAggregator:
 
             # Layer 3: Yield aggregators
             YearnSource(http=self._http),
+            ConvexCurveSource(http=self._http),
             ZapperSource(http=self._http),
             OneInchYieldSource(http=self._http),
 
@@ -75,6 +81,17 @@ class YieldAggregator:
             EigenLayerSource(http=self._http),
             EthenaSource(http=self._http),
             MakerDSRSource(http=self._http),
+            LidoSource(http=self._http),
+
+            # Layer 5: Market data sources (funding rates, basis trades)
+            FundingRatesSource(
+                http=self._http,
+                binance_enabled=fr_config.binance_enabled,
+                bybit_enabled=fr_config.bybit_enabled,
+                dydx_enabled=fr_config.dydx_enabled,
+                hyperliquid_enabled=fr_config.hyperliquid_enabled,
+                min_annualized_rate=fr_config.min_funding_rate_annualized,
+            ),
         ]
 
     async def discover(

@@ -1,17 +1,20 @@
-"""Application settings loaded from environment variables."""
+"""Application settings loaded from environment variables using pydantic-settings."""
 
 from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from sentinel.models.chain import Chain
 
 
-class RPCConfig(BaseModel):
-    """RPC endpoint configuration per chain."""
+class RPCConfig(BaseSettings):
+    """RPC endpoint configuration per chain. Loaded from RPC_* env vars."""
+
+    model_config = SettingsConfigDict(env_prefix="RPC_")
 
     ethereum: str = "https://eth.llamarpc.com"
     arbitrum: str = "https://arb1.arbitrum.io/rpc"
@@ -20,13 +23,16 @@ class RPCConfig(BaseModel):
     polygon: str = "https://polygon-rpc.com"
     avalanche: str = "https://api.avax.network/ext/bc/C/rpc"
     bsc: str = "https://bsc-dataseed.binance.org"
+    solana: str = "https://api.mainnet-beta.solana.com"
 
     def get_rpc(self, chain: Chain) -> str | None:
         return getattr(self, chain.value, None)
 
 
-class TwitterConfig(BaseModel):
-    """Twitter API configuration."""
+class TwitterConfig(BaseSettings):
+    """Twitter API configuration. Loaded from TWITTER_* env vars."""
+
+    model_config = SettingsConfigDict(env_prefix="TWITTER_")
 
     bearer_token: str | None = None
     api_key: str | None = None
@@ -54,19 +60,50 @@ class TwitterConfig(BaseModel):
     )
 
 
-class DefiLlamaConfig(BaseModel):
-    """DeFiLlama API configuration."""
+class DefiLlamaConfig(BaseSettings):
+    """DeFiLlama API configuration. Loaded from DEFILLAMA_* env vars."""
+
+    model_config = SettingsConfigDict(env_prefix="DEFILLAMA_")
 
     base_url: str = "https://yields.llama.fi"
     api_url: str = "https://api.llama.fi"
     coins_url: str = "https://coins.llama.fi"
     stablecoins_url: str = "https://stablecoins.llama.fi"
+    api_key: str | None = None  # Pro API key for yields endpoints
     request_timeout: int = 30
     max_retries: int = 3
 
+    @property
+    def pro_base_url(self) -> str | None:
+        """Pro API URL with embedded key."""
+        if self.api_key:
+            return f"https://pro-api.llama.fi/{self.api_key}"
+        return None
 
-class FilterConfig(BaseModel):
-    """Default filters for yield discovery."""
+    @property
+    def yields_url(self) -> str:
+        """Use Pro API for yields if key is available, otherwise fallback."""
+        if self.pro_base_url:
+            return f"{self.pro_base_url}/yields"
+        return self.base_url
+
+
+class FundingRatesConfig(BaseSettings):
+    """Funding rate source configuration. Loaded from FUNDING_* env vars."""
+
+    model_config = SettingsConfigDict(env_prefix="FUNDING_")
+
+    binance_enabled: bool = True
+    bybit_enabled: bool = True
+    dydx_enabled: bool = True
+    hyperliquid_enabled: bool = True
+    min_funding_rate_annualized: float = 2.0  # Minimum annualized rate to consider
+
+
+class FilterConfig(BaseSettings):
+    """Default filters for yield discovery. Loaded from FILTER_* env vars."""
+
+    model_config = SettingsConfigDict(env_prefix="FILTER_")
 
     min_tvl_usd: float = 100_000
     min_apy: float = 0.5
@@ -78,8 +115,14 @@ class FilterConfig(BaseModel):
     only_audited: bool = False
 
 
-class Settings(BaseModel):
-    """Global Sentinel settings."""
+class Settings(BaseSettings):
+    """Global Sentinel settings. Auto-loaded from .env file and env vars."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     # Chains to scan
     enabled_chains: list[Chain] = Field(
@@ -98,6 +141,7 @@ class Settings(BaseModel):
     rpc: RPCConfig = Field(default_factory=RPCConfig)
     twitter: TwitterConfig = Field(default_factory=TwitterConfig)
     defillama: DefiLlamaConfig = Field(default_factory=DefiLlamaConfig)
+    funding_rates: FundingRatesConfig = Field(default_factory=FundingRatesConfig)
     filters: FilterConfig = Field(default_factory=FilterConfig)
 
     # Output

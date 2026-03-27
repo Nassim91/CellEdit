@@ -39,6 +39,9 @@ class DefiLlamaSource(BaseYieldSource):
     Endpoints used:
     - GET /pools          — All pools with current APY, TVL, tokens
     - GET /chart/{pool}   — Historical APY for a specific pool
+
+    Supports DeFiLlama Pro API key for higher rate limits on yields endpoints.
+    Set DEFILLAMA_API_KEY in .env to use the Pro API.
     """
 
     name = "defillama"
@@ -49,9 +52,14 @@ class DefiLlamaSource(BaseYieldSource):
         base_url: str = "https://yields.llama.fi",
         api_url: str = "https://api.llama.fi",
         min_tvl: float = 100_000,
+        api_key: str | None = None,
     ) -> None:
         super().__init__(http)
-        self.base_url = base_url.rstrip("/")
+        # Use Pro API if key is provided
+        if api_key:
+            self.base_url = f"https://pro-api.llama.fi/{api_key}/yields"
+        else:
+            self.base_url = base_url.rstrip("/")
         self.api_url = api_url.rstrip("/")
         self.min_tvl = min_tvl
 

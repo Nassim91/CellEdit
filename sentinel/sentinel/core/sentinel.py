@@ -24,6 +24,7 @@ from sentinel.models.opportunity import YieldOpportunity
 from sentinel.models.report import SentinelReport
 from sentinel.models.sentiment import ProtocolMomentum
 from sentinel.reports.generator import ReportGenerator
+from sentinel.scrapers.sentiment_analyzer import SentimentAnalyzer
 from sentinel.scrapers.twitter_scraper import TwitterScraper
 from sentinel.strategies.engine import StrategyEngine
 from sentinel.utils.logging import get_logger
@@ -47,6 +48,7 @@ class SentinelAgent:
         self.risk_scorer = RiskScorer()
         self.strategy_engine = StrategyEngine()
         self.twitter_scraper = TwitterScraper(config=self.settings.twitter)
+        self.sentiment_analyzer = SentimentAnalyzer()
         self.report_generator = ReportGenerator(self.settings.report_output_dir)
 
     async def analyze(
